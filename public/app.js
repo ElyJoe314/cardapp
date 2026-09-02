@@ -335,6 +335,7 @@ function renderActions(state) {
   const actionsEl = $("#actions");
   const waitingMsg = $("#waiting-msg");
   const isMyTurn = valid.length > 0;
+  $all(".act").forEach((btn) => { btn.disabled = false; });
 
   actionsEl.classList.toggle("hidden", !isMyTurn);
   waitingMsg.classList.toggle("hidden", isMyTurn);
