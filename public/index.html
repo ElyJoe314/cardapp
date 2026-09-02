@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
+<title>Home Game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ============ LOBBY ============ -->
+<section id="lobby" class="lobby">
+  <div class="lobby-card">
+    <h1 class="wordmark">Home&nbsp;Game</h1>
+    <p class="tagline">A felt table for you and whoever's in tonight.</p>
+
+    <div class="lobby-tabs">
+      <button class="tab-btn active" data-tab="create">Start a table</button>
+      <button class="tab-btn" data-tab="join">Join a table</button>
+    </div>
+
+    <form id="create-form" class="lobby-form">
+      <label>Your name
+        <input type="text" id="create-name" maxlength="16" required placeholder="e.g. Sam" />
+      </label>
+      <div class="row">
+        <label>Starting stack
+          <input type="number" id="create-chips" value="1000" min="10" step="10" />
+        </label>
+        <label>Blinds
+          <select id="create-blinds">
+            <option value="5,10">5 / 10</option>
+            <option value="10,20">10 / 20</option>
+            <option value="25,50">25 / 50</option>
+            <option value="1,2">1 / 2</option>
+          </select>
+        </label>
+      </div>
+      <button type="submit" class="btn-primary">Create table</button>
+    </form>
+
+    <form id="join-form" class="lobby-form hidden">
+      <label>Your name
+        <input type="text" id="join-name" maxlength="16" required placeholder="e.g. Sam" />
+      </label>
+      <label>Room code
+        <input type="text" id="join-code" maxlength="4" required placeholder="ABCD" style="text-transform:uppercase; letter-spacing:0.2em;" />
+      </label>
+      <button type="submit" class="btn-primary">Sit down</button>
+    </form>
+
+    <p id="lobby-error" class="error hidden"></p>
+  </div>
+</section>
+
+<!-- ============ TABLE ============ -->
+<section id="table-screen" class="table-screen hidden">
+  <header class="topbar">
+    <div class="room-chip">
+      Room <span id="room-code">----</span>
+      <button id="copy-room" title="Copy invite link">copy link</button>
+    </div>
+    <div class="hand-chip">Hand <span id="hand-number">0</span></div>
+    <button id="leave-btn" class="leave-btn">Leave</button>
+  </header>
+
+  <div class="felt-wrap">
+    <div class="felt" id="felt">
+      <div class="board">
+        <div class="community" id="community"></div>
+        <div class="pot" id="pot">Pot 0</div>
+        <div class="stage-label" id="stage-label">Waiting for players</div>
+      </div>
+      <div id="seats" class="seats"></div>
+    </div>
+  </div>
+
+  <div id="deal-bar" class="deal-bar hidden">
+    <button id="deal-btn" class="btn-primary">Deal next hand</button>
+  </div>
+
+  <footer class="action-bar" id="action-bar">
+    <div class="hole-cards" id="my-hole"></div>
+    <div class="actions" id="actions">
+      <button class="act fold" data-act="fold">Fold</button>
+      <button class="act check" data-act="check">Check</button>
+      <button class="act call" data-act="call">Call</button>
+      <div class="raise-group">
+        <input type="range" id="raise-slider" min="0" max="0" step="1" />
+        <div class="raise-value"><span id="raise-amount">0</span> chips</div>
+        <button class="act raise" data-act="raise">Raise</button>
+      </div>
+      <button class="act allin" data-act="all_in">All in</button>
+    </div>
+    <div class="waiting-msg" id="waiting-msg">Waiting for other players…</div>
+  </footer>
+
+  <aside id="log-panel" class="log-panel">
+    <div class="log-header">
+      <span>Table talk</span>
+      <button id="log-toggle">hide</button>
+    </div>
+    <div id="log-body" class="log-body"></div>
+  </aside>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>
