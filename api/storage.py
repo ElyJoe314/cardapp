@@ -10,8 +10,8 @@ import time
 import random
 import string
 
-_UPSTASH_URL = os.environ.get("UPSTASH_REDIS_REST_URL")
-_UPSTASH_TOKEN = os.environ.get("UPSTASH_REDIS_REST_TOKEN")
+_UPSTASH_URL = os.environ.get("UPSTASH_REDIS_REST_URL") or os.environ.get("KV_REST_API_URL")
+_UPSTASH_TOKEN = os.environ.get("UPSTASH_REDIS_REST_TOKEN") or os.environ.get("KV_REST_API_TOKEN")
 
 _local_store = {}
 
