@@ -9,6 +9,7 @@ from treys import Card, Evaluator, Deck
 EVALUATOR = Evaluator()
 
 STAGES = ["waiting", "preflop", "flop", "turn", "river", "showdown"]
+TURN_TIME_LIMIT = 45  # seconds before an idle player is auto-folded
 
 
 def new_room(room_code, small_blind=5, big_blind=10, starting_chips=1000):
@@ -21,6 +22,7 @@ def new_room(room_code, small_blind=5, big_blind=10, starting_chips=1000):
         "stage": "waiting",
         "dealer_idx": -1,        # will advance to 0 on first hand
         "turn_idx": None,
+        "turn_started_at": None,   # epoch seconds; drives the 45s clock
         "current_bet": 0,
         "min_raise": big_blind,
         "small_blind": small_blind,
@@ -53,6 +55,13 @@ def _new_player(pid, name, chips):
 def log(state, msg):
     state["log"].append(msg)
     state["log"] = state["log"][-60:]
+
+
+def _set_turn(state, idx):
+    """Set whose turn it is and (re)start their 45s clock. Centralized so
+    the timeout check always has an accurate start time."""
+    state["turn_idx"] = idx
+    state["turn_started_at"] = time.time() if idx is not None else None
 
 
 def add_player(state, pid, name, chips=None):
@@ -150,7 +159,7 @@ def start_hand(state):
     # simpler: first to act is player after big blind, wrapping
     bb_pos = order.index(bb_idx)
     first_to_act = order[(bb_pos + 1) % n]
-    state["turn_idx"] = first_to_act
+    _set_turn(state, first_to_act)
 
     log(state, f"--- Hand #{state['hand_number']} --- blinds {state['small_blind']}/{state['big_blind']}")
     _skip_to_actionable(state)
@@ -196,6 +205,33 @@ def valid_actions(state, pid):
         actions.append("raise")
     actions.append("all_in")
     return actions
+
+
+def check_and_apply_timeout(state):
+    """If whoever's turn it is has sat past TURN_TIME_LIMIT, fold them and
+    move play on. Returns True if it folded someone (caller should re-check
+    in a small loop, since folding one idle player can hand the turn to
+    another idle player, e.g. everyone stepped away from the table).
+    Stateless-server-friendly: this is meant to be called on every request
+    that reads or mutates a room, not from a background timer."""
+    if state["stage"] in ("waiting", "showdown"):
+        return False
+    if state.get("turn_idx") is None or state.get("turn_started_at") is None:
+        return False
+    if time.time() - state["turn_started_at"] < TURN_TIME_LIMIT:
+        return False
+
+    p = state["players"][state["turn_idx"]]
+    if p["folded"] or p["all_in"] or not p["in_hand"]:
+        return False
+
+    p["folded"] = True
+    log(state, f"{p['name']} ran out of time and folded.")
+    _maybe_end_hand_by_folds(state)
+    if state["stage"] != "showdown":
+        _advance_turn(state)
+    state["updated_at"] = time.time()
+    return True
 
 
 def apply_action(state, pid, action, amount=0):
@@ -305,7 +341,7 @@ def _advance_turn(state):
         idx = (idx + 1) % n
         p = state["players"][idx]
         if p["in_hand"] and not p["folded"] and not p["all_in"]:
-            state["turn_idx"] = idx
+            _set_turn(state, idx)
             return
     _advance_stage(state)
 
@@ -316,7 +352,7 @@ def _skip_to_actionable(state):
     for _ in range(n):
         p = state["players"][idx]
         if p["in_hand"] and not p["folded"] and not p["all_in"]:
-            state["turn_idx"] = idx
+            _set_turn(state, idx)
             return
         idx = (idx + 1) % n
     _advance_stage(state)
@@ -366,7 +402,7 @@ def _advance_stage(state):
         idx = (idx + 1) % n
         p = state["players"][idx]
         if p["in_hand"] and not p["folded"] and not p["all_in"]:
-            state["turn_idx"] = idx
+            _set_turn(state, idx)
             return
     _advance_stage(state)
 
@@ -449,6 +485,7 @@ def reset_to_waiting(state):
         p["total_bet"] = 0
     state["community"] = []
     state["turn_idx"] = None
+    state["turn_started_at"] = None
 
 
 def public_state(state, viewer_id=None):
@@ -472,4 +509,9 @@ def public_state(state, viewer_id=None):
         p = get_player(state, viewer_id)
         if p:
             out["to_call"] = max(0, state["current_bet"] - p["bet"])
+    out["turn_time_limit"] = TURN_TIME_LIMIT
+    out["turn_deadline"] = (
+        state["turn_started_at"] + TURN_TIME_LIMIT if state.get("turn_started_at") else None
+    )
+    out.pop("turn_started_at", None)
     return out

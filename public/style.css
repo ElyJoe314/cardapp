@@ -256,6 +256,19 @@ button {
   font-style: italic;
 }
 
+.turn-timer {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(243,236,217,0.7);
+  background: rgba(0,0,0,0.25);
+  padding: 2px 12px;
+  border-radius: 12px;
+}
+.turn-timer.low {
+  color: #fff;
+  background: var(--danger);
+}
+
 /* playing cards */
 .card {
   width: 36px;

@@ -9,6 +9,13 @@ let playerId = localStorage.getItem("poker_player_id") || "";
 let pollTimer = null;
 let lastStage = null;
 
+// Turn countdown: the server exposes an absolute deadline (epoch seconds),
+// and we tick it locally every 250ms so the display is smooth even though
+// polling only happens once a second.
+let turnDeadline = null;
+let turnPlayerName = null;
+setInterval(tickCountdown, 250);
+
 // ---------------- Card rendering ----------------
 
 function cardEl(cardStr, faceDown = false) {
@@ -246,6 +253,16 @@ function render(state) {
   };
   $("#stage-label").textContent = stageLabels[state.stage] || state.stage;
 
+  // capture the turn deadline for the local ticker; tickCountdown() renders it
+  if (state.turn_deadline && state.turn_idx !== null && state.turn_idx !== undefined) {
+    turnDeadline = state.turn_deadline;
+    const activePlayer = state.players[state.turn_idx];
+    turnPlayerName = activePlayer ? (activePlayer.id === playerId ? "You" : activePlayer.name) : null;
+  } else {
+    turnDeadline = null;
+    turnPlayerName = null;
+  }
+
   renderSeats(state);
   renderMyCards(state);
   renderActions(state);
@@ -335,6 +352,10 @@ function renderActions(state) {
   const actionsEl = $("#actions");
   const waitingMsg = $("#waiting-msg");
   const isMyTurn = valid.length > 0;
+
+  // Buttons get disabled right after a click (see click handler below) to
+  // stop double-submits. Re-enable them on every render, otherwise a button
+  // that was disabled on your last turn stays dead forever on later turns.
   $all(".act").forEach((btn) => { btn.disabled = false; });
 
   actionsEl.classList.toggle("hidden", !isMyTurn);
@@ -388,6 +409,18 @@ function renderLog(state) {
   const wasAtBottom = body.scrollTop + body.clientHeight >= body.scrollHeight - 10;
   body.innerHTML = (state.log || []).map((l) => `<div>${escapeHtml(l)}</div>`).join("");
   if (wasAtBottom) body.scrollTop = body.scrollHeight;
+}
+
+function tickCountdown() {
+  const el = $("#turn-timer");
+  if (!turnDeadline) {
+    el.classList.add("hidden");
+    return;
+  }
+  const remaining = Math.max(0, Math.ceil(turnDeadline - Date.now() / 1000));
+  el.classList.remove("hidden");
+  el.textContent = `${turnPlayerName} — ${remaining}s to act`;
+  el.classList.toggle("low", remaining <= 10);
 }
 
 function escapeHtml(str) {

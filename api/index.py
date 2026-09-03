@@ -1,6 +1,9 @@
 import sys
 import os
 
+# Vercel's Python runtime doesn't reliably put this file's own folder on
+# sys.path before importing it, which breaks the sibling imports below
+# ("import engine" / "import storage"). Force it explicitly.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import uuid
@@ -25,6 +28,19 @@ def _load(room):
     state = storage.get_state(room)
     if not state:
         raise HTTPException(404, "Room not found.")
+    # Vercel functions are stateless, so nothing fires a 45s timer on its
+    # own — instead, every request that touches a room first checks whether
+    # the current player has been sitting past the limit and auto-folds
+    # them if so. Loop in case folding one idle player just hands the turn
+    # to another idle player.
+    changed = False
+    for _ in range(len(state.get("players", [])) + 1):
+        if engine.check_and_apply_timeout(state):
+            changed = True
+        else:
+            break
+    if changed:
+        storage.set_state(room, state)
     return state
 
 
